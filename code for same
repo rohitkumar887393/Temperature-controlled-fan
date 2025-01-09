@@ -1,0 +1,74 @@
+//Code for STM32F401CC using Arduino Framework
+
+#include <Arduino.h>
+#include "DHT.h"
+
+// Define the DHT11 type and pin
+#define DHTPIN PA3  // Adjust the pin according to your setup
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+// Define motor control pins (connect to L293D motor driver)
+#define MOTOR_ENABLE PA0  // PWM control pin for motor speed
+#define MOTOR_IN1 PA1     // Motor direction control
+#define MOTOR_IN2 PA2     // Motor direction control
+
+void setup() {
+    // Initialize serial communication for debugging
+    Serial.begin(9600);
+
+    // Initialize the DHT sensor
+    dht.begin();
+
+    // Set motor control pins as output
+    pinMode(MOTOR_ENABLE, OUTPUT);
+    pinMode(MOTOR_IN1, OUTPUT);
+    pinMode(MOTOR_IN2, OUTPUT);
+
+    // Set initial motor state (stopped)
+    digitalWrite(MOTOR_IN1, LOW);
+    digitalWrite(MOTOR_IN2, LOW);
+    analogWrite(MOTOR_ENABLE, 0);  // Ensure motor is off
+}
+
+void loop() {
+    // Read temperature and humidity from DHT11
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+
+    // Check if the readings are valid
+    if (isnan(temperature) || isnan(humidity)) {
+        Serial.println("Failed to read from DHT sensor!");
+        return;
+    }
+
+    // Print readings to the serial monitor
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.println("°C");
+    Serial.print("Humidity: ");
+    Serial.print(humidity);
+    Serial.println("%");
+
+    // Control motor based on temperature thresholds
+    if (temperature >= 18) {
+        // Turn the motor on and set a PWM speed proportional to temperature
+        digitalWrite(MOTOR_IN1, HIGH);
+        digitalWrite(MOTOR_IN2, LOW);
+        int motorSpeed = map(temperature, 18 , 50, 70, 255); // Map temp to PWM range (100-255)
+        motorSpeed = constrain(motorSpeed, 70, 255); // Ensure PWM value stays in valid range
+        analogWrite(MOTOR_ENABLE, motorSpeed);
+        Serial.print("Motor running at speed: ");
+        Serial.println(motorSpeed);
+    } else {
+        // Turn the motor off if the temperature is below 25°C
+        analogWrite(MOTOR_ENABLE, 0);
+        digitalWrite(MOTOR_IN1, LOW);
+        digitalWrite(MOTOR_IN2, LOW);
+        Serial.println("Motor stopped.");
+    }
+
+    // Delay before the next reading
+    delay(2000);
+}
